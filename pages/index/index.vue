@@ -100,7 +100,7 @@
 					<text class="section-title">正品严选</text>
 					<text class="section-desc">每一支药品都可溯源</text>
 				</view>
-				<text class="section-more" @click="goToCategory({name: '全部'})">查看全部 ></text>
+				<text class="section-more" @click="goToCategory({name: '全部'})">查看全部 </text>
 			</view>
 			<view class="product-list">
 				<view class="loading-state" v-if="loading">

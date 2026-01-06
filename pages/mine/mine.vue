@@ -86,42 +86,28 @@
 						<icon type="success" size="18" color="#2C3E50" />
 						<text>资质认证</text>
 					</view>
-					<text class="menu-right">去认证 ></text>
+					<text class="menu-right">去认证</text>
 				</view>
 				<view class="menu-item" @click="showToast('溯源查询开发中')">
 					<view class="menu-left">
 						<icon type="search" size="18" color="#2C3E50" />
 						<text>正品溯源查询</text>
 					</view>
-					<text class="menu-right">></text>
+					<text class="menu-right"></text>
 				</view>
 				<view class="menu-item" @click="goToAddress">
 					<view class="menu-left">
 						<icon type="download" size="18" color="#2C3E50" />
 						<text>收货地址</text>
 					</view>
-					<text class="menu-right">></text>
+					<text class="menu-right"></text>
 				</view>
 				<view class="menu-item" @click="showToast('联系客服')">
 					<view class="menu-left">
 						<icon type="contact" size="18" color="#2C3E50" />
 						<text>在线客服</text>
 					</view>
-					<text class="menu-right">9:00-21:00 ></text>
-				</view>
-				<view class="menu-item" @click="handleAutoLogin">
-					<view class="menu-left">
-						<icon type="info" size="18" color="#E74C3C" />
-						<text style="color: #E74C3C;">自动登录 (SSO)</text>
-					</view>
-					<text class="menu-right">点击刷新 ></text>
-				</view>
-				<view class="menu-item" @click="goToLogin">
-					<view class="menu-left">
-						<icon type="settings" size="18" color="#3498DB" />
-						<text style="color: #3498DB;">登录参数设置</text>
-					</view>
-					<text class="menu-right">去设置 ></text>
+					<text class="menu-right">9:00-21:00 </text>
 				</view>
 			</view>
 		</view>
