@@ -122,14 +122,18 @@
 							<text class="tag" v-for="(tag, tIdx) in item.tags" :key="tIdx">{{tag}}</text>
 						</view>
 						<view class="product-footer">
-							<view class="price-box">
-								<text class="currency">￥</text>
-								<text class="price">{{item.memberPrice || item.price}}</text>
-								<view class="luxury-vip-tag" :style="{ background: memberLevel.bg, color: memberLevel.textColor, border: memberLevel.border }">
-									{{memberLevel.name}}
+							<view class="price-area">
+								<view class="price-box">
+									<text class="currency">￥</text>
+									<text class="price">{{item.memberPrice || item.price}}</text>
+								</view>
+								<view class="vip-tag-wrapper">
+									<view class="luxury-vip-tag" :style="{ background: memberLevel.bg, color: memberLevel.textColor, border: memberLevel.border }">
+										{{memberLevel.name}}价
+									</view>
 								</view>
 							</view>
-							<view class="buy-btn">立即购</view>
+							<view class="buy-btn">+</view>
 						</view>
 					</view>
 				</view>
@@ -555,7 +559,7 @@
 	.product-list {
 		display: flex;
 		flex-wrap: wrap;
-		padding: 0 20rpx;
+		padding: 0 20rpx 20rpx 20rpx;
 		justify-content: space-between;
 		
 		.loading-state, .empty-state {
@@ -568,115 +572,177 @@
 	}
 
 	.product-card {
-		width: 345rpx;
+		width: calc((100% - 20rpx) / 2);
 		background-color: #fff;
-		border-radius: 20rpx;
+		border-radius: 16rpx; /* 更方正一点 */
 		margin-bottom: 20rpx;
 		overflow: hidden;
-		box-shadow: 0 4rpx 16rpx rgba(0,0,0,0.05);
+		box-shadow: 0 4rpx 20rpx rgba(0,0,0,0.03); /* 极简阴影 */
+		display: flex;
+		flex-direction: column;
+		border: 1rpx solid rgba(0,0,0,0.02); /* 微弱描边增加质感 */
 		
 		.product-image-wrapper {
 			position: relative;
 			width: 100%;
 			height: 345rpx;
-			background-color: #F8F9F9;
+			background-color: #FAFAFA;
+			flex-shrink: 0;
 			
 			.product-image {
 				width: 100%;
 				height: 100%;
+				opacity: 0;
+				transition: opacity 0.5s ease;
+			}
+			.product-image[src] {
+				opacity: 1;
 			}
 			
 			.auth-badge {
 				position: absolute;
-				top: 16rpx;
-				left: 16rpx;
-				background: rgba(44, 62, 80, 0.8);
+				bottom: 0;
+				left: 0;
+				width: 100%;
+				height: 48rpx;
+				background: linear-gradient(to top, rgba(0,0,0,0.4), transparent);
 				color: #fff;
 				font-size: 18rpx;
-				padding: 4rpx 12rpx;
-				border-radius: 4rpx;
-				backdrop-filter: blur(4px);
+				padding: 0 16rpx 10rpx 16rpx;
+				display: flex;
+				align-items: flex-end;
+				letter-spacing: 2rpx;
+				font-weight: 300;
+				opacity: 0.9;
+				top: auto; /* 覆盖旧样式 */
+				border-radius: 0; /* 覆盖旧样式 */
+				box-shadow: none; /* 覆盖旧样式 */
 			}
 		}
 		
 		.product-info {
-			padding: 20rpx;
+			padding: 24rpx;
+			flex: 1;
+			display: flex;
+			flex-direction: column;
 			
 			.product-brand {
 				font-size: 20rpx;
-				color: #D4AF37;
-				font-weight: bold;
-				margin-bottom: 6rpx;
+				color: #999; /* 更高级的灰色 */
+				font-weight: 500;
+				margin-bottom: 12rpx;
 				display: block;
+				letter-spacing: 2rpx;
+				text-transform: uppercase;
 			}
 			
 			.product-name {
-				font-size: 26rpx;
-				color: #2C3E50;
-				font-weight: 600;
-				height: 72rpx;
-				line-height: 36rpx;
+				font-size: 28rpx;
+				color: #222; /* 深灰近黑 */
+				font-weight: 500;
+				height: 80rpx;
+				line-height: 40rpx;
 				display: -webkit-box;
 				-webkit-box-orient: vertical;
 				-webkit-line-clamp: 2;
 				overflow: hidden;
-				margin-bottom: 12rpx;
+				margin-bottom: 24rpx;
+				font-family: -apple-system, BlinkMacSystemFont, 'Helvetica Neue', Helvetica, sans-serif;
 			}
 			
 			.product-tag-row {
 				display: flex;
 				flex-wrap: wrap;
-				height: 36rpx;
+				height: 32rpx;
 				overflow: hidden;
-				margin-bottom: 16rpx;
+				margin-bottom: 28rpx;
 				
 				.tag {
-					font-size: 18rpx;
-					color: #95A5A6;
-					background-color: #F8F9F9;
-					padding: 2rpx 8rpx;
+					font-size: 16rpx;
+					color: #666;
+					border: 1rpx solid #E0E0E0; /* 线性标签更显高级 */
+					background-color: transparent;
+					padding: 0 10rpx;
+					height: 28rpx;
+					line-height: 26rpx;
 					border-radius: 4rpx;
 					margin-right: 8rpx;
 				}
 			}
 			
 			.product-footer {
+				margin-top: auto;
 				display: flex;
-				flex-direction: column;
+				flex-direction: row;
+				justify-content: space-between;
+				align-items: flex-end;
 				
-				.price-box {
+				.price-area {
 					display: flex;
-					align-items: baseline;
-					margin-bottom: 10rpx;
+					flex-direction: column;
+					flex: 1;
 					
-					.currency {
-						font-size: 20rpx;
-						color: #D4AF37;
-						font-weight: bold;
-					}
-					.price {
-						font-size: 32rpx;
-						color: #D4AF37;
-						font-weight: bold;
-						margin-right: 8rpx;
+					.price-box {
+						display: flex;
+						align-items: baseline;
+						margin-bottom: 8rpx;
+						
+						.currency {
+							font-size: 24rpx;
+							color: #222; /* 价格回归黑色，强调专业 */
+							font-weight: normal;
+							margin-right: 2rpx;
+						}
+						.price {
+							font-size: 38rpx;
+							color: #222;
+							font-weight: 500;
+							margin-right: 4rpx;
+							font-family: 'DIN Alternate', 'Helvetica Neue', sans-serif;
+							line-height: 1;
+							letter-spacing: -1rpx;
+						}
 					}
 					
-					.luxury-vip-tag {
-						font-size: 16rpx;
-						padding: 2rpx 8rpx;
-						border-radius: 4rpx;
-						font-weight: bold;
+					.vip-tag-wrapper {
+						display: flex;
+						
+						.luxury-vip-tag {
+							font-size: 18rpx;
+							padding: 0 8rpx;
+							height: 30rpx;
+							line-height: 30rpx;
+							border-radius: 4rpx;
+							font-weight: 500;
+							display: inline-flex;
+							align-items: center;
+							/* 覆盖内联样式，使用黑金配色 */
+							background: #222 !important; 
+							color: #E0CFA6 !important;
+							border: none !important;
+						}
 					}
 				}
 				
 				.buy-btn {
-					background-color: #2C3E50;
+					background: #222; /* 纯黑按钮 */
 					color: #fff;
-					font-size: 22rpx;
-					text-align: center;
-					padding: 12rpx 0;
-					border-radius: 8rpx;
-					font-weight: 500;
+					width: 56rpx;
+					height: 56rpx;
+					border-radius: 50%;
+					display: flex;
+					align-items: center;
+					justify-content: center;
+					font-size: 36rpx;
+					font-weight: 200;
+					box-shadow: 0 4rpx 12rpx rgba(0,0,0,0.15);
+					margin-bottom: 2rpx;
+					flex-shrink: 0;
+					transition: all 0.2s;
+				}
+				.buy-btn:active {
+					transform: scale(0.95);
+					background: #000;
 				}
 			}
 		}

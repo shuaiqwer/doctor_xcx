@@ -163,7 +163,13 @@ export const apiService = {
                 image: raw.mainImg ? 'https://img.dinghuo123.com/' + raw.mainImg.imgUrl : '',
                 album: (raw.albumList || []).map(img => 'https://img.dinghuo123.com/' + img.imgUrl),
                 desc: raw.remark || '正品保障，权威认证。',
-                detailHtml: (raw.description || raw.introduction || '').replace(/&#60;/g, '<').replace(/&#62;/g, '>'),
+                detailHtml: (raw.description || raw.introduction || '')
+                    .replace(/&lt;/g, '<').replace(/&gt;/g, '>')
+                    .replace(/&#60;/g, '<').replace(/&#62;/g, '>')
+                    .replace(/&#34;/g, '"').replace(/&quot;/g, '"')
+                    .replace(/&#39;/g, "'").replace(/&apos;/g, "'")
+                    .replace(/&nbsp;/g, ' ')
+                    .replace(/&amp;/g, '&'),
                 sales: 100 + (Number(raw.id) % 500)
             };
         } catch (e) {
