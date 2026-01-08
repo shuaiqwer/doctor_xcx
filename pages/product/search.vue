@@ -46,19 +46,32 @@
 				<image src="/static/empty-search.png" mode="aspectFit" class="empty-img"></image>
 				<text>未找到相关商品</text>
 			</view>
-			<view class="product-grid" v-else>
+			<view class="product-list" v-else>
 				<view class="product-card" v-for="(item, index) in results" :key="index" @click="goToDetail(item.id)">
-					<image class="product-image" :src="item.image" mode="aspectFill" referrer-policy="no-referrer"></image>
+					<view class="product-image-wrapper">
+						<image class="product-image" :src="item.image" mode="aspectFill" v-if="item.image" referrer-policy="no-referrer"></image>
+						<view class="product-image" v-else></view>
+						<view class="auth-badge">正品认证</view>
+					</view>
 					<view class="product-info">
+						<text class="product-brand">{{item.brand}}</text>
 						<text class="product-name">{{item.name}}</text>
+						<view class="product-tag-row">
+							<text class="tag" v-for="(tag, tIdx) in item.tags" :key="tIdx">{{tag}}</text>
+						</view>
 						<view class="product-footer">
-							<view class="price-box">
-								<text class="price">￥{{item.memberPrice || item.price}}</text>
-								<view class="luxury-vip-tag" :style="{ background: memberLevel.bg, color: memberLevel.textColor, border: memberLevel.border }">
-									{{memberLevel.name}}
+							<view class="price-area">
+								<view class="price-box">
+									<text class="currency">￥</text>
+									<text class="price">{{item.memberPrice || item.price}}</text>
+								</view>
+								<view class="vip-tag-wrapper">
+									<view class="luxury-vip-tag" :style="{ background: memberLevel.bg, color: memberLevel.textColor, border: memberLevel.border }">
+										{{memberLevel.name}}价
+									</view>
 								</view>
 							</view>
-							<text class="sales">销量 {{item.sales || 0}}</text>
+							<view class="buy-btn">+</view>
 						</view>
 					</view>
 				</view>
@@ -249,68 +262,168 @@
 		}
 	}
 	
-	.product-grid {
+	.product-list {
 		display: flex;
 		flex-wrap: wrap;
+		padding: 20rpx;
 		justify-content: space-between;
+	}
+
+	.product-card {
+		width: calc((100% - 20rpx) / 2);
+		background-color: #fff;
+		border-radius: 16rpx;
+		margin-bottom: 20rpx;
+		overflow: hidden;
+		box-shadow: 0 4rpx 20rpx rgba(0,0,0,0.03);
+		display: flex;
+		flex-direction: column;
+		border: 1rpx solid rgba(0,0,0,0.02);
 		
-		.product-card {
-			width: 48.5%;
-			background: #fff;
-			border-radius: 16rpx;
-			margin-bottom: 20rpx;
-			overflow: hidden;
-			box-shadow: 0 4rpx 12rpx rgba(0,0,0,0.03);
+		.product-image-wrapper {
+			position: relative;
+			width: 100%;
+			height: 345rpx;
+			background-color: #FAFAFA;
+			flex-shrink: 0;
 			
 			.product-image {
 				width: 100%;
-				height: 340rpx;
-				background-color: #F8F9F9;
+				height: 100%;
 			}
 			
-			.product-info {
-				padding: 20rpx;
+			.auth-badge {
+				position: absolute;
+				bottom: 0;
+				left: 0;
+				width: 100%;
+				height: 48rpx;
+				background: linear-gradient(to top, rgba(0,0,0,0.4), transparent);
+				color: #fff;
+				font-size: 18rpx;
+				padding: 0 16rpx 10rpx 16rpx;
+				display: flex;
+				align-items: flex-end;
+				letter-spacing: 2rpx;
+				font-weight: 300;
+				opacity: 0.9;
+			}
+		}
+		
+		.product-info {
+			padding: 24rpx;
+			flex: 1;
+			display: flex;
+			flex-direction: column;
+			
+			.product-brand {
+				font-size: 20rpx;
+				color: #999;
+				font-weight: 500;
+				margin-bottom: 12rpx;
+				display: block;
+				letter-spacing: 2rpx;
+				text-transform: uppercase;
+			}
+			
+			.product-name {
+				font-size: 28rpx;
+				color: #222;
+				font-weight: 500;
+				height: 80rpx;
+				line-height: 40rpx;
+				display: -webkit-box;
+				-webkit-box-orient: vertical;
+				-webkit-line-clamp: 2;
+				overflow: hidden;
+				margin-bottom: 24rpx;
+			}
+			
+			.product-tag-row {
+				display: flex;
+				flex-wrap: wrap;
+				height: 32rpx;
+				overflow: hidden;
+				margin-bottom: 28rpx;
 				
-				.product-name {
-					font-size: 26rpx;
-					color: #2C3E50;
-					font-weight: 500;
-					height: 72rpx;
-					line-height: 36rpx;
-					display: -webkit-box;
-					-webkit-box-orient: vertical;
-					-webkit-line-clamp: 2;
-					overflow: hidden;
-					margin-bottom: 15rpx;
+				.tag {
+					font-size: 16rpx;
+					color: #666;
+					border: 1rpx solid #E0E0E0;
+					background-color: transparent;
+					padding: 0 10rpx;
+					height: 28rpx;
+					line-height: 26rpx;
+					border-radius: 4rpx;
+					margin-right: 8rpx;
 				}
+			}
+			
+			.product-footer {
+				margin-top: auto;
+				display: flex;
+				flex-direction: row;
+				justify-content: space-between;
+				align-items: flex-end;
 				
-				.product-footer {
+				.price-area {
 					display: flex;
 					flex-direction: column;
+					flex: 1;
 					
 					.price-box {
 						display: flex;
-						align-items: center;
-						margin-bottom: 10rpx;
+						align-items: baseline;
+						margin-bottom: 8rpx;
 						
-						.price {
-							font-size: 32rpx;
-							color: #D4AF37;
-							font-weight: bold;
-							margin-right: 10rpx;
+						.currency {
+							font-size: 24rpx;
+							color: #222;
+							font-weight: normal;
+							margin-right: 2rpx;
 						}
-						
-						.luxury-vip-tag {
-							font-size: 18rpx;
-							padding: 2rpx 8rpx;
-							border-radius: 4rpx;
+						.price {
+							font-size: 38rpx;
+							color: #222;
+							font-weight: 500;
+							margin-right: 4rpx;
+							font-family: 'DIN Alternate', 'Helvetica Neue', sans-serif;
+							line-height: 1;
+							letter-spacing: -1rpx;
 						}
 					}
 					
-					.sales {
-						font-size: 20rpx;
-						color: #BDC3C7;
+					.vip-tag-wrapper {
+						display: flex;
+						
+						.luxury-vip-tag {
+							font-size: 18rpx;
+							padding: 0 8rpx;
+							height: 30rpx;
+							line-height: 30rpx;
+							border-radius: 4rpx;
+							font-weight: 500;
+							display: inline-flex;
+							align-items: center;
+							background: #222 !important; 
+							color: #E0CFA6 !important;
+							border: none !important;
+						}
 					}
+				}
+				
+				.buy-btn {
+					background: #222;
+					color: #fff;
+					width: 56rpx;
+					height: 56rpx;
+					border-radius: 50%;
+					display: flex;
+					align-items: center;
+					justify-content: center;
+					font-size: 36rpx;
+					font-weight: 200;
+					box-shadow: 0 4rpx 12rpx rgba(0,0,0,0.15);
 				}
 			}
 		}

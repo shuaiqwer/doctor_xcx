@@ -35,16 +35,32 @@
 							<text class="empty-text">{{ errorMsg || '该分类下暂无商品' }}</text>
 							<button class="retry-btn" @click="retryInit">重新加载</button>
 						</view>
-						<view class="drug-grid" v-else>
-							<view class="drug-item" v-for="(product, pIdx) in currentProducts" :key="pIdx" @click="goToDetail(product.id)">
-								<view class="drug-image-box">
-									<image :src="product.image" mode="aspectFill" class="drug-image" referrer-policy="no-referrer"></image>
+						<view class="product-list" v-else>
+							<view class="product-card" v-for="(item, index) in currentProducts" :key="index" @click="goToDetail(item.id)">
+								<view class="product-image-wrapper">
+									<image class="product-image" :src="item.image" mode="aspectFill" v-if="item.image" referrer-policy="no-referrer"></image>
+									<view class="product-image" v-else></view>
+									<view class="auth-badge">正品认证</view>
 								</view>
-								<text class="drug-name">{{product.name}}</text>
-								<view class="price-row">
-									<text class="drug-price">¥{{product.memberPrice || product.price}}</text>
-									<view class="luxury-vip-tag" :style="{ background: memberLevel.bg, color: memberLevel.textColor, border: memberLevel.border }">
-										VIP
+								<view class="product-info">
+									<text class="product-brand">{{item.brand}}</text>
+									<text class="product-name">{{item.name}}</text>
+									<view class="product-tag-row">
+										<text class="tag" v-for="(tag, tIdx) in item.tags" :key="tIdx">{{tag}}</text>
+									</view>
+									<view class="product-footer">
+										<view class="price-area">
+											<view class="price-box">
+												<text class="currency">￥</text>
+												<text class="price">{{item.memberPrice || item.price}}</text>
+											</view>
+											<view class="vip-tag-wrapper">
+												<view class="luxury-vip-tag" :style="{ background: memberLevel.bg, color: memberLevel.textColor, border: memberLevel.border }">
+													{{memberLevel.name}}价
+												</view>
+											</view>
+										</view>
+										<view class="buy-btn">+</view>
 									</view>
 								</view>
 							</view>
@@ -333,72 +349,174 @@
 		}
 	}
 
-	.drug-grid {
+	.product-list {
 		display: flex;
 		flex-wrap: wrap;
+		justify-content: space-between;
 		
-		.drug-item {
-			width: 50%;
+		.loading-state, .empty-state {
+			width: 100%;
+			padding: 100rpx 0;
+			text-align: center;
+			color: #95A5A6;
+			font-size: 28rpx;
+		}
+	}
+
+	.product-card {
+		width: calc((100% - 15rpx) / 2); /* 稍微调整间距以适应侧边栏后的宽度 */
+		background-color: #fff;
+		border-radius: 12rpx;
+		margin-bottom: 20rpx;
+		overflow: hidden;
+		box-shadow: 0 4rpx 12rpx rgba(0,0,0,0.03);
+		display: flex;
+		flex-direction: column;
+		border: 1rpx solid rgba(0,0,0,0.02);
+		
+		.product-image-wrapper {
+			position: relative;
+			width: 100%;
+			height: 260rpx; /* 侧边栏模式下图片由于宽度限制，高度也相应调小 */
+			background-color: #FAFAFA;
+			flex-shrink: 0;
+			
+			.product-image {
+				width: 100%;
+				height: 100%;
+			}
+			
+			.auth-badge {
+				position: absolute;
+				bottom: 0;
+				left: 0;
+				width: 100%;
+				height: 40rpx;
+				background: linear-gradient(to top, rgba(0,0,0,0.4), transparent);
+				color: #fff;
+				font-size: 16rpx;
+				padding: 0 12rpx 6rpx 12rpx;
+				display: flex;
+				align-items: flex-end;
+				letter-spacing: 1rpx;
+				font-weight: 300;
+				opacity: 0.9;
+			}
+		}
+		
+		.product-info {
+			padding: 16rpx;
+			flex: 1;
 			display: flex;
 			flex-direction: column;
-			padding: 15rpx;
-			box-sizing: border-box;
-			margin-bottom: 20rpx;
-			cursor: pointer;
-			transition: transform 0.2s;
 			
-			&:active {
-				transform: scale(0.98);
-			}
-			
-			.drug-image-box {
-				width: 100%;
-				height: 240rpx;
-				background-color: #F8F9F9;
-				border-radius: 16rpx;
-				display: flex;
-				align-items: center;
-				justify-content: center;
-				margin-bottom: 15rpx;
-				border: 1rpx solid #EBEEF5;
-				overflow: hidden;
-				
-				.drug-image {
-					width: 100%;
-					height: 100%;
-					object-fit: cover;
-				}
-			}
-			
-			.drug-name {
-				font-size: 24rpx;
-				color: #2C3E50;
+			.product-brand {
+				font-size: 18rpx;
+				color: #999;
 				font-weight: 500;
+				margin-bottom: 8rpx;
+				display: block;
+				letter-spacing: 1rpx;
+				text-transform: uppercase;
+			}
+			
+			.product-name {
+				font-size: 24rpx;
+				color: #222;
+				font-weight: 500;
+				height: 68rpx;
+				line-height: 34rpx;
 				display: -webkit-box;
 				-webkit-box-orient: vertical;
 				-webkit-line-clamp: 2;
 				overflow: hidden;
-				height: 64rpx;
-				line-height: 32rpx;
-				margin-bottom: 10rpx;
+				margin-bottom: 16rpx;
 			}
-
-			.price-row {
+			
+			.product-tag-row {
 				display: flex;
-				align-items: center;
-				justify-content: space-between;
+				flex-wrap: wrap;
+				height: 28rpx;
+				overflow: hidden;
+				margin-bottom: 20rpx;
 				
-				.drug-price {
-					font-size: 28rpx;
-					color: #D4AF37;
-					font-weight: bold;
-				}
-
-				.luxury-vip-tag {
-					font-size: 16rpx;
-					padding: 4rpx 10rpx;
+				.tag {
+					font-size: 14rpx;
+					color: #666;
+					border: 1rpx solid #E0E0E0;
+					background-color: transparent;
+					padding: 0 8rpx;
+					height: 24rpx;
+					line-height: 22rpx;
 					border-radius: 4rpx;
-					font-weight: bold;
+					margin-right: 6rpx;
+				}
+			}
+			
+			.product-footer {
+				margin-top: auto;
+				display: flex;
+				flex-direction: row;
+				justify-content: space-between;
+				align-items: flex-end;
+				
+				.price-area {
+					display: flex;
+					flex-direction: column;
+					flex: 1;
+					
+					.price-box {
+						display: flex;
+						align-items: baseline;
+						margin-bottom: 4rpx;
+						
+						.currency {
+							font-size: 20rpx;
+							color: #222;
+							font-weight: normal;
+							margin-right: 2rpx;
+						}
+						.price {
+							font-size: 32rpx;
+							color: #222;
+							font-weight: 500;
+							margin-right: 4rpx;
+							font-family: 'DIN Alternate', 'Helvetica Neue', sans-serif;
+							line-height: 1;
+						}
+					}
+					
+					.vip-tag-wrapper {
+						display: flex;
+						
+						.luxury-vip-tag {
+							font-size: 16rpx;
+							padding: 0 6rpx;
+							height: 26rpx;
+							line-height: 26rpx;
+							border-radius: 4rpx;
+							font-weight: 500;
+							display: inline-flex;
+							align-items: center;
+							background: #222 !important; 
+							color: #E0CFA6 !important;
+							border: none !important;
+						}
+					}
+				}
+				
+				.buy-btn {
+					background: #222;
+					color: #fff;
+					width: 48rpx;
+					height: 48rpx;
+					border-radius: 50%;
+					display: flex;
+					align-items: center;
+					justify-content: center;
+					font-size: 32rpx;
+					font-weight: 200;
+					flex-shrink: 0;
 				}
 			}
 		}
