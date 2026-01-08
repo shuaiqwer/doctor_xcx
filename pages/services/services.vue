@@ -179,8 +179,7 @@
 
 					this.currentProducts = list.map(p => ({
 						...p,
-						image: apiService.formatImageUrl(p.image),
-						memberPrice: apiService.calculateMemberPrice(p.price)
+						memberPrice: apiService.calculateMemberPrice(p.purchasePrice)
 					}));
 				} catch (e) {
 					console.error('[services] 加载商品过程报错:', e);
@@ -337,6 +336,72 @@
 	.drug-grid {
 		display: flex;
 		flex-wrap: wrap;
+		
+		.drug-item {
+			width: 50%;
+			display: flex;
+			flex-direction: column;
+			padding: 15rpx;
+			box-sizing: border-box;
+			margin-bottom: 20rpx;
+			cursor: pointer;
+			transition: transform 0.2s;
+			
+			&:active {
+				transform: scale(0.98);
+			}
+			
+			.drug-image-box {
+				width: 100%;
+				height: 240rpx;
+				background-color: #F8F9F9;
+				border-radius: 16rpx;
+				display: flex;
+				align-items: center;
+				justify-content: center;
+				margin-bottom: 15rpx;
+				border: 1rpx solid #EBEEF5;
+				overflow: hidden;
+				
+				.drug-image {
+					width: 100%;
+					height: 100%;
+					object-fit: cover;
+				}
+			}
+			
+			.drug-name {
+				font-size: 24rpx;
+				color: #2C3E50;
+				font-weight: 500;
+				display: -webkit-box;
+				-webkit-box-orient: vertical;
+				-webkit-line-clamp: 2;
+				overflow: hidden;
+				height: 64rpx;
+				line-height: 32rpx;
+				margin-bottom: 10rpx;
+			}
+
+			.price-row {
+				display: flex;
+				align-items: center;
+				justify-content: space-between;
+				
+				.drug-price {
+					font-size: 28rpx;
+					color: #D4AF37;
+					font-weight: bold;
+				}
+
+				.luxury-vip-tag {
+					font-size: 16rpx;
+					padding: 4rpx 10rpx;
+					border-radius: 4rpx;
+					font-weight: bold;
+				}
+			}
+		}
 	}
 
 	.empty-list {
@@ -422,69 +487,5 @@
 		font-size: 24rpx;
 		color: #999;
 		width: 100%;
-	}
-
-	.drug-grid {
-		display: flex;
-		flex-wrap: wrap;
-		
-		.drug-item {
-			width: 50%;
-			display: flex;
-			flex-direction: column;
-			padding: 15rpx;
-			box-sizing: border-box;
-			margin-bottom: 20rpx;
-			
-			.drug-image-box {
-				width: 100%;
-				height: 240rpx;
-				background-color: #F8F9F9;
-				border-radius: 16rpx;
-				display: flex;
-				align-items: center;
-				justify-content: center;
-				margin-bottom: 15rpx;
-				border: 1rpx solid #EBEEF5;
-				overflow: hidden;
-				
-				.drug-image {
-					width: 100%;
-					height: 100%;
-				}
-			}
-			
-			.drug-name {
-				font-size: 24rpx;
-				color: #2C3E50;
-				font-weight: 500;
-				display: -webkit-box;
-				-webkit-box-orient: vertical;
-				-webkit-line-clamp: 2;
-				overflow: hidden;
-				height: 64rpx;
-				line-height: 32rpx;
-				margin-bottom: 10rpx;
-			}
-
-			.price-row {
-				display: flex;
-				align-items: center;
-				justify-content: space-between;
-				
-				.drug-price {
-					font-size: 28rpx;
-					color: #D4AF37;
-					font-weight: bold;
-				}
-
-				.luxury-vip-tag {
-					font-size: 16rpx;
-					padding: 2rpx 8rpx;
-					border-radius: 4rpx;
-					font-weight: bold;
-				}
-			}
-		}
 	}
 </style>

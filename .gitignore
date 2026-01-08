@@ -17,3 +17,15 @@ yarn-error.log*
 
 cookies.txt
 sso_data.json
+
+# Local static resources
+static/product_images/
+static/data/details/
+doctor_shop.db
+*.json
+!manifest.json
+!pages.json
+!package.json
+!project.config.json
+!project.private.config.json
+

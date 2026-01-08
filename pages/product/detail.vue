@@ -83,7 +83,24 @@
 				<view class="title-line"></view>
 			</view>
 			<view class="detail-content">
-				<rich-text v-if="product.detailHtml" :nodes="formatRichText(product.detailHtml)"></rich-text>
+				<!-- 混合模式渲染：文本用 rich-text，图片用原生 image 组件 -->
+				<block v-if="splitNodes && splitNodes.length > 0">
+					<block v-for="(node, index) in splitNodes" :key="index">
+						<!-- 文本段落 -->
+						<rich-text v-if="node.type === 'html'" :nodes="node.content"></rich-text>
+						<!-- 原生图片 -->
+						<image 
+							v-else-if="node.type === 'img'" 
+							:src="node.src" 
+							mode="widthFix" 
+							style="width: 100%; display: block;"
+							lazy-load
+							@error="onImgError($event, index)"
+							@load="onImgLoad($event, index)"
+						></image>
+					</block>
+				</block>
+                <!-- 加载失败或无内容提示 -->
 				<view v-else class="no-detail">
 					<view class="detail-img-placeholder" style="height: 600rpx;"></view>
 					<text class="placeholder-text">正品保障 · 药监备案 · 官方直供</text>
@@ -119,6 +136,7 @@
 		data() {
 			return {
 				productId: '',
+                splitNodes: [], // 用于存储拆分后的图文节点
 				product: {
 					name: '加载中...',
 					price: '0.00',
@@ -136,27 +154,106 @@
 			await this.loadProductDetail();
 		},
 		methods: {
-			formatRichText(html) {
+			parseDetailHtml(html, localizedImages = []) {
+                if (!html) return [];
+                const nodes = [];
+                // 1. 基础清洗HTML entities
+                let cleanHtml = html.replace(/\\/g, '')
+                    .replace(/&lt;/g, '<').replace(/&gt;/g, '>')
+                    .replace(/&#60;/g, '<').replace(/&#62;/g, '>')
+                    .replace(/&#34;/g, '"').replace(/&quot;/g, '"');
+                
+                let lastIndex = 0;
+                // [修复] 允许 src 为空的情况 (把 + 改为 *)
+                const imgRegex = /<img[^>]*src\s*=\s*['"]([^'"]*)['"][^>]*>/gi;
+                let match;
+                let imgCount = 0;
+                
+                console.log('[DEBUG] Parsing HTML length:', cleanHtml.length);
+                console.log('[DEBUG] Localized images count:', localizedImages ? localizedImages.length : 0);
+                
+                while ((match = imgRegex.exec(cleanHtml)) !== null) {
+                    // 添加图片前面的文本
+                    if (match.index > lastIndex) {
+                        const textPart = cleanHtml.substring(lastIndex, match.index);
+                        if (textPart.trim()) {
+                            nodes.push({ type: 'html', content: this.formatRichText(textPart, false) });
+                        }
+                    }
+                    
+                    // 提取图片 src
+                    let src = match[1];
+                    
+                    // [关键修复] 如果有本地化图片，优先使用对应的
+                    if (localizedImages && localizedImages[imgCount]) {
+                        src = localizedImages[imgCount];
+                    }
+                    
+                    // 统一处理路径
+                    src = apiService.formatImageUrl(src);
+                    
+                    // 添加图片节点
+                    nodes.push({ type: 'img', src: src });
+                    
+                    lastIndex = imgRegex.lastIndex;
+                    imgCount++;
+                }
+                
+                // 添加剩余文本
+                if (lastIndex < cleanHtml.length) {
+                    const textPart = cleanHtml.substring(lastIndex);
+                    if (textPart.trim()) {
+                        nodes.push({ type: 'html', content: this.formatRichText(textPart, false) });
+                    }
+                }
+                
+                if (nodes.length === 0 && cleanHtml) {
+                     nodes.push({ type: 'html', content: this.formatRichText(cleanHtml, false) });
+                }
+                
+                return nodes;
+            },
+			formatRichText(html, processImg = true) {
 				if (!html) return '';
-				// 处理图片宽度，使其自适应
-				let newHtml = html.replace(/<img[^>]*>/gi, function(match) {
-					match = match.replace(/style="[^"]*"/gi, '').replace(/style='[^']*'/gi, '');
-					match = match.replace(/width="[^"]*"/gi, '').replace(/width='[^']*'/gi, '');
-					match = match.replace(/height="[^"]*"/gi, '').replace(/height='[^']*'/gi, '');
-					return match;
-				});
-				newHtml = newHtml.replace(/\<img/gi, '<img style="max-width:100%;height:auto;display:block;margin:10px 0;"');
+				
+				// 1. 基础清洗
+				let newHtml = html.replace(/\\/g, '');
+				
+                if (processImg) {
+                    // 2. 移除原有的 img 标签，重构为标准标签 (保留给兜底逻辑用)
+                    newHtml = newHtml.replace(/<img[^>]*>/gi, function(match) {
+                        var srcMatch = match.match(/src\s*=\s*['"]([^'"]+)['"]/i);
+                        if (!srcMatch) srcMatch = match.match(/src\s*=\s*([^ >]+)/i);
+                        var src = srcMatch ? srcMatch[1] : '';
+                        if (!src) return '';
+                        if (src.indexOf('//') === 0) src = 'https:' + src;
+                        return `<img src="${src}" width="100%" class="rich-img" style="width:100%; height:auto; display:block; margin-bottom:10px;" referrer-policy="no-referrer" />`;
+                    });
+                }
+				
+				// 4. 段落优化
+				newHtml = newHtml.replace(/<p[^>]*>/gi, '<p class="rich-p" style="margin:0; padding:0; line-height:1.6;">');
+				
 				return newHtml;
 			},
+            onImgError(e, index) {
+                console.error('Image load error at index ' + index, e);
+            },
+            onImgLoad(e, index) {
+                // 图片加载成功，可以在这里处理占位图隐藏等逻辑
+                // console.log('Image loaded at index ' + index);
+            },
 			async loadProductDetail() {
 				try {
 					// 优先获取完整详情
 					const detail = await apiService.getProductDetail(this.productId);
 					this.product = {
 						...detail,
-						image: apiService.formatImageUrl(detail.image),
-						memberPrice: apiService.calculateMemberPrice(detail.price)
-					};
+					memberPrice: apiService.calculateMemberPrice(detail.purchasePrice)
+				};
+                    
+                    this.splitNodes = this.parseDetailHtml(this.product.detailHtml, detail.xcx_detail_images || []);
+                    console.log('[DEBUG] Final splitNodes count:', this.splitNodes.length);
 				} catch (e) {
 					console.warn('获取完整详情失败，尝试从列表数据加载', e);
 					// 降级方案：从列表数据中找
@@ -166,10 +263,10 @@
 						if (found) {
 							this.product = {
 								...found,
-								image: apiService.formatImageUrl(found.image),
-								memberPrice: apiService.calculateMemberPrice(found.price),
-								desc: found.desc || '正品保障，药监局合规备案，冷链直发。'
+							memberPrice: apiService.calculateMemberPrice(found.purchasePrice),
 							};
+                            
+                            this.splitNodes = this.parseDetailHtml(this.product.detailHtml, found.xcx_detail_images || []);
 						}
 					} catch (err) {
 						console.error('加载详情失败', err);
@@ -475,4 +572,12 @@
 			}
 		}
 	}
+        
+        /* 解决小程序 img 标签选择器失效问题，改为 class 选择器 */
+        .rich-img {
+            max-width: 100% !important;
+            width: 100% !important;
+            height: auto !important;
+            display: block !important;
+        }
 </style>

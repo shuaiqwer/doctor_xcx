@@ -203,8 +203,8 @@
 					if (data && data.length > 0) {
 						this.products = data.map(p => ({
 							...p,
-							image: apiService.formatImageUrl(p.image),
-							memberPrice: apiService.calculateMemberPrice(p.price)
+
+						memberPrice: apiService.calculateMemberPrice(p.purchasePrice)
 						}));
 					} else {
 						this.loadError = true;
@@ -592,11 +592,6 @@
 			.product-image {
 				width: 100%;
 				height: 100%;
-				opacity: 0;
-				transition: opacity 0.5s ease;
-			}
-			.product-image[src] {
-				opacity: 1;
 			}
 			
 			.auth-badge {

@@ -1,0 +1,251 @@
+from flask import Flask, jsonify, request, send_from_directory
+from flask_cors import CORS
+import sqlite3
+import os
+import json
+
+app = Flask(__name__)
+CORS(app)
+
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+DB_PATH = os.path.join(BASE_DIR, "doctor_shop.db")
+IMAGE_DIR = os.path.join(BASE_DIR, "static", "product_images")
+
+def get_db_connection():
+    conn = sqlite3.connect(DB_PATH)
+    conn.row_factory = sqlite3.Row # 使返回结果可以通过列名访问
+    return conn
+
+@app.route('/api/products', methods=['GET'])
+def get_products():
+    page = int(request.args.get('page', 1))
+    page_size = int(request.args.get('pageSize', 20))
+    keyword = request.args.get('keyword', '')
+    category = request.args.get('category', '')
+    offset = (page - 1) * page_size
+    
+    conn = get_db_connection()
+    
+    conditions = []
+    params = []
+    
+    if keyword:
+        conditions.append("(name LIKE ? OR brand LIKE ?)")
+        params.extend([f'%{keyword}%', f'%{keyword}%'])
+    
+    if category and category.lower() != 'all' and category != '全部':
+        # 智能宽容匹配：品牌、名称或标签包含该分类关键词
+        conditions.append("(brand = ? OR name LIKE ? OR tags LIKE ?)")
+        params.extend([category, f'%{category}%', f'%{category}%'])
+        
+    where_clause = " WHERE " + " AND ".join(conditions) if conditions else ""
+    
+    # 获取总数
+    count_query = f'SELECT count(*) FROM products {where_clause}'
+    total = conn.execute(count_query, params).fetchone()[0]
+    
+    # 获取数据
+    query = f'SELECT * FROM products {where_clause} LIMIT ? OFFSET ?'
+    rows = conn.execute(query, params + [page_size, offset]).fetchall()
+    
+    products = []
+    for row in rows:
+        d = dict(row)
+        pid = d['id']
+        d['tags'] = d['tags'].split(',') if d['tags'] else []
+        d['purchasePrice'] = d.pop('purchase_price')
+        d['originalPrice'] = d.pop('original_price')
+        
+        # 1. 核心优化：探测本地图片目录 (绝对路径)
+        local_img_dir = os.path.join(IMAGE_DIR, str(pid))
+        local_main_image = ""
+        
+        if os.path.exists(local_img_dir):
+            # 扫描目录寻找以 0. 或 0_ 开头的主图
+            try:
+                for f in os.listdir(local_img_dir):
+                    if f.startswith('0.') or f.startswith('0_'):
+                        local_main_image = f"/static/product_images/{pid}/{f}"
+                        break
+            except Exception as e:
+                print(f"[ERROR] Scan directory {pid} failed: {e}")
+        
+        # 2. 智能路径决策
+        if local_main_image:
+            # 只要本地目录下有 0.jpg 系列的主图，绝对优先使用本地路径
+            d['image'] = local_main_image
+        else:
+            # 本地没探测到图，则分析数据库里的原始字段
+            db_img = d.get('image', '')
+            if db_img:
+                if db_img.startswith('http'):
+                    # 如果已经是完整 URL，保持原样
+                    d['image'] = db_img
+                elif 'static/product_images/' in db_img:
+                    # 如果已经包含正确路径，确保以 / 开头
+                    d['image'] = db_img if db_img.startswith('/') else f"/{db_img}"
+                elif not db_img.startswith('/'):
+                    # 纯文件名或纯 ID/文件名的相对路径
+                    d['image'] = f"/static/product_images/{db_img}"
+            else:
+                d['image'] = "" # 彻底没图的情况
+            
+        # 添加缺失的字段
+        if 'price' not in d:
+            d['price'] = str(d.get('purchasePrice', 0))
+        if 'sales' not in d:
+            d['sales'] = 100 + (pid % 500)
+        products.append(d)
+        
+    conn.close()
+    return jsonify({
+        "code": 200,
+        "msg": "success",
+        "data": {
+            "list": products,
+            "total": total
+        }
+    })
+
+@app.route('/api/categories', methods=['GET'])
+def get_categories():
+    conn = get_db_connection()
+    # 从数据库中提取唯一的品牌作为分类
+    rows = conn.execute('SELECT DISTINCT brand FROM products WHERE brand IS NOT NULL AND brand != "" LIMIT 20').fetchall()
+    conn.close()
+    
+    categories = [{"name": "全部", "id": "all"}]
+    for row in rows:
+        brand = row['brand']
+        categories.append({"name": brand, "id": brand})
+        
+    return jsonify({
+        "code": 200,
+        "msg": "success",
+        "data": categories
+    })
+
+@app.route('/api/product/<int:pid>', methods=['GET'])
+def get_product_detail(pid):
+    print(f"[DEBUG] Fetching detail for product ID: {pid}")
+    conn = get_db_connection()
+    
+    # 获取基本信息
+    row = conn.execute('''
+        SELECT p.id, p.name, p.brand, p.purchase_price, p.original_price, p.tags
+        FROM products p
+        WHERE p.id = ?
+    ''', (pid,)).fetchone()
+    
+    # 获取详细信息
+    detail_row = conn.execute('''
+        SELECT description, album, xcx_detail_images 
+        FROM product_details 
+        WHERE product_id = ?
+    ''', (pid,)).fetchone()
+    
+    conn.close()
+    
+    if not row:
+        print(f"[DEBUG] Product {pid} not found in DB")
+        return jsonify({"code": 404, "msg": "Product not found"}), 404
+    
+    # 解析详情表中的字段
+    db_album = []
+    db_xcx_images = []
+    db_description = ""
+    
+    if detail_row:
+        db_description = detail_row['description'] or ""
+        try:
+            db_album = json.loads(detail_row['album']) if detail_row['album'] else []
+        except: db_album = []
+        try:
+            db_xcx_images = json.loads(detail_row['xcx_detail_images']) if detail_row['xcx_detail_images'] else []
+        except: db_xcx_images = []
+
+    # 构造响应数据
+    data = {
+        "id": pid,
+        "name": row['name'],
+        "brand": row['brand'],
+        "purchasePrice": str(row['purchase_price']),
+        "originalPrice": str(row['original_price']),
+        "price": str(row['purchase_price']),
+        "sales": 100 + (pid % 500),
+        "tags": row['tags'].split(',') if row['tags'] else [],
+        "image": "",
+        "album": db_album,
+        "xcx_detail_images": db_xcx_images,
+        "detailHtml": ""
+    }
+
+    # 如果数据库里有详情图列表，优先使用
+    detail_images = db_xcx_images
+    
+    # 如果数据库里啥都没有，或者作为补充，扫描本地目录
+    if not detail_images:
+        product_img_dir = os.path.join(IMAGE_DIR, str(pid))
+        if os.path.exists(product_img_dir):
+            files = os.listdir(product_img_dir)
+            images = [f for f in files if f.lower().endswith('.jpg')]
+            
+            temp_details = []
+            for img in images:
+                name_part = img.split('.')[0]
+                idx_str = name_part.split('_')[0] if '_' in name_part else name_part
+                try:
+                    index = int(idx_str)
+                    if index > 0: temp_details.append((index, img))
+                except: continue
+            
+            temp_details.sort(key=lambda x: x[0])
+            detail_images = [f"/static/product_images/{pid}/{x[1]}" for x in temp_details]
+
+    # 设置主图
+    product_img_dir = os.path.join(IMAGE_DIR, str(pid))
+    main_image = ""
+    if os.path.exists(product_img_dir):
+        for f in os.listdir(product_img_dir):
+            if f.startswith('0.') or f.startswith('0_'):
+                main_image = f"/static/product_images/{pid}/{f}"
+                break
+    
+    if main_image:
+        data['image'] = main_image
+        if not data['album']: data['album'] = [main_image]
+    elif detail_images:
+        data['image'] = detail_images[0]
+        if not data['album']: data['album'] = [detail_images[0]]
+
+    data['xcx_detail_images'] = detail_images
+    
+    # 构造 detailHtml
+    # 逻辑：如果数据库有描述 HTML，看它是否包含图片占位符或真实路径
+    # 这里我们优先使用扫描出来的本地图片来生成干净的详情页
+    img_nodes = []
+    for img_url in detail_images:
+        img_nodes.append(f'<p><img src="{img_url}" style="width:100%;display:block;" /></p>')
+    
+    if img_nodes:
+        data['detailHtml'] = "".join(img_nodes)
+    else:
+        # 如果没有扫描到图，但数据库有文字描述，则使用描述
+        data['detailHtml'] = db_description or "<p>暂无详情内容</p>"
+    
+    return jsonify({
+        "code": 200,
+        "msg": "success",
+        "data": data
+    })
+
+@app.route('/static/product_images/<path:filename>')
+def serve_image(filename):
+    return send_from_directory(IMAGE_DIR, filename)
+
+if __name__ == '__main__':
+    print(f"Server running at http://localhost:8080")
+    print(f"API Endpoints:")
+    print(f"  - List: http://localhost:8080/api/products?page=1&pageSize=20")
+    print(f"  - Detail: http://localhost:8080/api/product/1040817795")
+    app.run(host='0.0.0.0', port=8080)

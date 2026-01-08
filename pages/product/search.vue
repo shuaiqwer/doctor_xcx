@@ -115,8 +115,7 @@
 					const list = res.list || [];
 					this.results = list.map(p => ({
 						...p,
-						image: apiService.formatImageUrl(p.image),
-						memberPrice: apiService.calculateMemberPrice(p.price)
+					memberPrice: apiService.calculateMemberPrice(p.purchasePrice)
 					}));
 				} catch (e) {
 					console.error('搜索失败', e);
