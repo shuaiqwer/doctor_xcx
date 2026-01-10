@@ -106,37 +106,43 @@
 				<view class="loading-state" v-if="loading">
 					<text>正在为您挑选精选商品...</text>
 				</view>
-				<view class="empty-state" v-else-if="products.length === 0">
-					<text>暂无商品数据 (请检查 static/data/products.json)</text>
+				<view class="error-state" v-else-if="loadError">
+					<text>数据加载异常，请确认后端服务已启动</text>
+					<button class="retry-btn" @click="loadData">重试</button>
 				</view>
-				<view class="product-card" v-for="(item, index) in products" :key="index" @click="goToDetail(item)" v-else>
-					<view class="product-image-wrapper">
-						<image class="product-image" :src="item.image" mode="aspectFill" v-if="item.image" referrer-policy="no-referrer"></image>
-						<view class="product-image" v-else></view>
-						<view class="auth-badge">正品认证</view>
-					</view>
-					<view class="product-info">
-						<text class="product-brand">{{item.brand}}</text>
-						<text class="product-name">{{item.name}}</text>
-						<view class="product-tag-row">
-							<text class="tag" v-for="(tag, tIdx) in item.tags" :key="tIdx">{{tag}}</text>
+				<view class="empty-state" v-else-if="products.length === 0">
+					<text>暂无商品数据 (请检查数据源)</text>
+				</view>
+				<block v-else>
+					<view class="product-card" v-for="(item, index) in products" :key="index" @click="goToDetail(item)">
+						<view class="product-image-wrapper">
+							<image class="product-image" :src="item.image" mode="aspectFill" v-if="item.image" referrer-policy="no-referrer"></image>
+							<view class="product-image" v-else></view>
+							<view class="auth-badge">正品认证</view>
 						</view>
-						<view class="product-footer">
-							<view class="price-area">
-								<view class="price-box">
-									<text class="currency">￥</text>
-									<text class="price">{{item.memberPrice || item.price}}</text>
-								</view>
-								<view class="vip-tag-wrapper">
-									<view class="luxury-vip-tag" :style="{ background: memberLevel.bg, color: memberLevel.textColor, border: memberLevel.border }">
-										{{memberLevel.name}}价
+						<view class="product-info">
+							<text class="product-brand">{{item.brand}}</text>
+							<text class="product-name">{{item.name}}</text>
+							<view class="product-tag-row">
+								<text class="tag" v-for="(tag, tIdx) in item.tags" :key="tIdx">{{tag}}</text>
+							</view>
+							<view class="product-footer">
+								<view class="price-area">
+									<view class="price-box">
+										<text class="currency">￥</text>
+										<text class="price">{{item.memberPrice || item.price}}</text>
+									</view>
+									<view class="vip-tag-wrapper">
+										<view class="luxury-vip-tag" :style="{ background: memberLevel.bg, color: memberLevel.textColor, border: memberLevel.border }">
+											{{memberLevel.name}}价
+										</view>
 									</view>
 								</view>
+								<view class="buy-btn">+</view>
 							</view>
-							<view class="buy-btn">+</view>
 						</view>
 					</view>
-				</view>
+				</block>
 			</view>
 		</view>
 	</view>
@@ -175,7 +181,7 @@
 				this.loadError = false;
 				try {
 					const levelKey = apiService.getCurrentMemberLevel();
-					this.memberLevel = MEMBER_LEVELS[levelKey];
+					this.memberLevel = MEMBER_LEVELS[levelKey] || MEMBER_LEVELS.BLACK_GOLD;
 					
 					// 加载分类
 					const cats = await apiService.getCategories();
@@ -198,16 +204,14 @@
 
 					console.log('正在调用 getHomeProducts');
 					const data = await apiService.getHomeProducts();
+					console.log('首页商品原始数据:', data);
 					console.log('首页商品数据量:', data ? data.length : 0);
 					
 					if (data && data.length > 0) {
-						this.products = data.map(p => ({
-							...p,
-
-						memberPrice: apiService.calculateMemberPrice(p.purchasePrice)
-						}));
+						this.products = data; 
+						console.log('第一条商品详情:', JSON.stringify(this.products[0]));
 					} else {
-						this.loadError = true;
+						this.products = [];
 					}
 				} catch (e) {
 					console.error('加载商品失败', e);
@@ -562,12 +566,26 @@
 		padding: 0 20rpx 20rpx 20rpx;
 		justify-content: space-between;
 		
-		.loading-state, .empty-state {
+		.loading-state, .empty-state, .error-state {
 			width: 100%;
 			padding: 100rpx 0;
 			text-align: center;
 			color: #95A5A6;
 			font-size: 28rpx;
+			display: flex;
+			flex-direction: column;
+			align-items: center;
+
+			.retry-btn {
+				margin-top: 30rpx;
+				font-size: 24rpx;
+				padding: 15rpx 60rpx;
+				background: #D4AF37;
+				color: #fff;
+				border-radius: 40rpx;
+				border: none;
+				line-height: 1.5;
+			}
 		}
 	}
 

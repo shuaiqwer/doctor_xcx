@@ -1,14 +1,54 @@
 <template>
 	<view class="container">
-		<!-- 商品图片轮播 -->
-		<swiper class="product-banner" indicator-dots autoplay circular indicator-active-color="#D4AF37">
-			<swiper-item v-for="(img, index) in product.album" :key="index">
-				<image :src="img" mode="aspectFill" class="banner-image" referrer-policy="no-referrer"></image>
-			</swiper-item>
-			<swiper-item v-if="!product.album || product.album.length === 0">
-				<image :src="product.image" mode="aspectFill" class="banner-image" referrer-policy="no-referrer"></image>
-			</swiper-item>
-		</swiper>
+		<!-- 商品图片展示区域 (仿照设计图) -->
+		<view class="image-gallery">
+			<!-- 主图显示 -->
+			<view class="main-image-wrapper">
+				<image 
+					:src="product.albumlist[currentImgIndex] || product.image" 
+					mode="aspectFit" 
+					class="main-image" 
+					referrer-policy="no-referrer"
+					@error="onMainImgError"
+				></image>
+			</view>
+			
+			<!-- 缩略图轮播列表 -->
+			<view class="thumb-scroller-wrapper">
+				<view class="nav-arrow left" @click="prevThumb" v-if="product.albumlist && product.albumlist.length > 4">
+					<text class="arrow-icon">‹</text>
+				</view>
+				
+				<scroll-view class="thumb-list" scroll-x :scroll-into-view="'thumb-' + currentImgIndex" scroll-with-animation>
+					<view 
+						class="thumb-item" 
+						v-for="(img, index) in product.albumlist" 
+						:key="index"
+						:id="'thumb-' + index"
+						:class="{ active: currentImgIndex === index }"
+						@click="currentImgIndex = index"
+					>
+						<image :src="img" mode="aspectFill" class="thumb-image" referrer-policy="no-referrer"></image>
+					</view>
+				</scroll-view>
+				
+				<view class="nav-arrow right" @click="nextThumb" v-if="product.albumlist && product.albumlist.length > 4">
+					<text class="arrow-icon">›</text>
+				</view>
+			</view>
+		</view>
+
+		<!-- 分段选项卡 (仿照设计图) -->
+		<view class="tab-header">
+			<view class="tab-item" :class="{ active: currentTab === 0 }" @click="currentTab = 0">
+				<text class="tab-text">商品介绍</text>
+				<view class="tab-line" v-if="currentTab === 0"></view>
+			</view>
+			<view class="tab-item" :class="{ active: currentTab === 1 }" @click="currentTab = 1">
+				<text class="tab-text">商品附件</text>
+				<view class="tab-line" v-if="currentTab === 1"></view>
+			</view>
+		</view>
 
 		<!-- 商品基本信息 -->
 		<view class="info-section">
@@ -26,8 +66,8 @@
 			<view class="title-row">
 				<view class="brand-tag">{{product.brand}}</view>
 				<text class="product-title">{{product.name}}</text>
+				
 			</view>
-			<view class="desc-text">{{product.desc}}</view>
 			
 			<!-- 规格参数简述 -->
 			<view class="spec-brief">
@@ -77,7 +117,7 @@
 		</view>
 
 		<!-- 商品详情图 -->
-		<view class="detail-section">
+		<view class="detail-section" v-if="currentTab === 0">
 			<view class="section-title">
 				<text class="title-text">商品详情</text>
 				<view class="title-line"></view>
@@ -136,12 +176,16 @@
 		data() {
 			return {
 				productId: '',
+                currentImgIndex: 0,
+                currentTab: 0,
                 splitNodes: [], // 用于存储拆分后的图文节点
 				product: {
 					name: '加载中...',
 					price: '0.00',
 					originalPrice: '0.00',
 					memberPrice: '0.00',
+                    album: [],
+                    albumlist: [],
 					desc: '正品保障，药监局合规备案，冷链直发。'
 				},
 				memberLevel: {}
@@ -164,15 +208,13 @@
                     .replace(/&#34;/g, '"').replace(/&quot;/g, '"');
                 
                 let lastIndex = 0;
-                // [修复] 允许 src 为空的情况 (把 + 改为 *)
-                const imgRegex = /<img[^>]*src\s*=\s*['"]([^'"]*)['"][^>]*>/gi;
+                // [优化] 更强大的正则：支持各种属性顺序，并兼容 data-src
+                const imgRegex = /<img[^>]*>/gi;
                 let match;
                 let imgCount = 0;
                 
-                console.log('[DEBUG] Parsing HTML length:', cleanHtml.length);
-                console.log('[DEBUG] Localized images count:', localizedImages ? localizedImages.length : 0);
-                
                 while ((match = imgRegex.exec(cleanHtml)) !== null) {
+                    const imgTag = match[0];
                     // 添加图片前面的文本
                     if (match.index > lastIndex) {
                         const textPart = cleanHtml.substring(lastIndex, match.index);
@@ -181,11 +223,16 @@
                         }
                     }
                     
-                    // 提取图片 src
-                    let src = match[1];
+                    // 提取 src 或 data-src (备选)
+                    let src = '';
+                    const srcM = imgTag.match(/src\s*=\s*(['"]?)([^'"\s>]+)\1/i);
+                    const dsM = imgTag.match(/data-src\s*=\s*(['"]?)([^'"\s>]+)\1/i);
                     
-                    // [关键修复] 如果有本地化图片，优先使用对应的
-                    if (localizedImages && localizedImages[imgCount]) {
+                    src = (srcM && srcM[2] && srcM[2].length > 5) ? srcM[2] : 
+                          ((dsM && dsM[2]) ? dsM[2] : '');
+                    
+                    // [逻辑优化] 优先使用 HTML 中的原始地址。如果地址无效，则使用备份
+                    if ((!src || src.length < 5) && localizedImages && localizedImages[imgCount]) {
                         src = localizedImages[imgCount];
                     }
                     
@@ -193,7 +240,9 @@
                     src = apiService.formatImageUrl(src);
                     
                     // 添加图片节点
-                    nodes.push({ type: 'img', src: src });
+                    if (src) {
+                        nodes.push({ type: 'img', src: src });
+                    }
                     
                     lastIndex = imgRegex.lastIndex;
                     imgCount++;
@@ -222,11 +271,13 @@
                 if (processImg) {
                     // 2. 移除原有的 img 标签，重构为标准标签 (保留给兜底逻辑用)
                     newHtml = newHtml.replace(/<img[^>]*>/gi, function(match) {
-                        var srcMatch = match.match(/src\s*=\s*['"]([^'"]+)['"]/i);
-                        if (!srcMatch) srcMatch = match.match(/src\s*=\s*([^ >]+)/i);
-                        var src = srcMatch ? srcMatch[1] : '';
+                        var srcMatch = match.match(/src\s*=\s*(['"]?)([^'"\s>]+)\1/i);
+                        var src = srcMatch ? srcMatch[2] : '';
                         if (!src) return '';
-                        if (src.indexOf('//') === 0) src = 'https:' + src;
+                        
+                        // 统一使用 apiService 的格式化方法
+                        src = apiService.formatImageUrl(src);
+                        
                         return `<img src="${src}" width="100%" class="rich-img" style="width:100%; height:auto; display:block; margin-bottom:10px;" referrer-policy="no-referrer" />`;
                     });
                 }
@@ -239,18 +290,43 @@
             onImgError(e, index) {
                 console.error('Image load error at index ' + index, e);
             },
+            onMainImgError(e) {
+                const url = this.product.albumlist[this.currentImgIndex] || this.product.image;
+                console.error('[IMAGE ERROR] 主图加载失败:', url, e);
+            },
             onImgLoad(e, index) {
                 // 图片加载成功，可以在这里处理占位图隐藏等逻辑
                 // console.log('Image loaded at index ' + index);
+            },
+            prevThumb() {
+                if (this.currentImgIndex > 0) {
+                    this.currentImgIndex--;
+                } else if (this.product.albumlist && this.product.albumlist.length > 0) {
+                    this.currentImgIndex = this.product.albumlist.length - 1;
+                }
+            },
+            nextThumb() {
+                if (this.product.albumlist && this.currentImgIndex < this.product.albumlist.length - 1) {
+                    this.currentImgIndex++;
+                } else {
+                    this.currentImgIndex = 0;
+                }
             },
 			async loadProductDetail() {
 				try {
 					// 优先获取完整详情
 					const detail = await apiService.getProductDetail(this.productId);
-					this.product = {
-						...detail,
-					memberPrice: apiService.calculateMemberPrice(detail.purchasePrice)
-				};
+					this.product = detail; // apiService 已经处理过图片和价格了
+                    this.currentImgIndex = 0; // 重置索引
+
+                    if (this.productId == '1042777132') {
+                        console.log('[DEBUG-DETAIL] productId=1042777132 原始详情对象:', JSON.stringify(detail));
+                        console.log('[DEBUG-DETAIL] 映射后主图:', this.product.image);
+                        console.log('[DEBUG-DETAIL] 映射后相册:', this.product.albumlist);
+                    }
+                    
+                    console.log('[DEBUG] 商品主图 URL:', this.product.image);
+                    console.log('[DEBUG] 商品轮播图内容:', this.product.album);
                     
                     this.splitNodes = this.parseDetailHtml(this.product.detailHtml, detail.xcx_detail_images || []);
                     console.log('[DEBUG] Final splitNodes count:', this.splitNodes.length);
@@ -261,10 +337,7 @@
 						const res = await apiService.getProducts({ page: 1, pageSize: 2000 });
 						const found = res.list.find(p => p.id == this.productId);
 						if (found) {
-							this.product = {
-								...found,
-							memberPrice: apiService.calculateMemberPrice(found.purchasePrice),
-							};
+							this.product = found;
                             
                             this.splitNodes = this.parseDetailHtml(this.product.detailHtml, found.xcx_detail_images || []);
 						}
@@ -300,19 +373,110 @@
 		min-height: 100vh;
 	}
 
-	.product-banner {
-		height: 750rpx;
+	.image-gallery {
 		background-color: #fff;
+		padding: 20rpx;
 		
-		.banner-image {
+		.main-image-wrapper {
 			width: 100%;
-			height: 100%;
+			height: 600rpx;
+			display: flex;
+			justify-content: center;
+			align-items: center;
+			margin-bottom: 20rpx;
+			
+			.main-image {
+				width: 100%;
+				height: 100%;
+				background-color: #fff;
+			}
 		}
 		
-		.banner-img-placeholder {
-			width: 100%;
-			height: 100%;
-			background-color: #F8F9F9;
+		.thumb-scroller-wrapper {
+			display: flex;
+			align-items: center;
+			padding: 0 10rpx;
+			position: relative;
+			
+			.nav-arrow {
+				width: 40rpx;
+				height: 80rpx;
+				display: flex;
+				justify-content: center;
+				align-items: center;
+				background-color: rgba(255,255,255,0.8);
+				z-index: 10;
+				
+				.arrow-icon {
+					font-size: 40rpx;
+					color: #999;
+				}
+				
+				&.left { margin-right: 10rpx; }
+				&.right { margin-left: 10rpx; }
+			}
+			
+			.thumb-list {
+				flex: 1;
+				white-space: nowrap;
+				height: 110rpx;
+				
+				.thumb-item {
+					display: inline-block;
+					width: 100rpx;
+					height: 100rpx;
+					margin-right: 20rpx;
+					border: 4rpx solid transparent;
+					box-sizing: border-box;
+					
+					&.active {
+						border-color: #00bcd4; // 设计图中的青色边框
+					}
+					
+					.thumb-image {
+						width: 100%;
+						height: 100%;
+					}
+				}
+			}
+		}
+	}
+
+	.tab-header {
+		display: flex;
+		background-color: #fff;
+		border-top: 1rpx solid #eee;
+		border-bottom: 1rpx solid #eee;
+		margin-top: 20rpx;
+		
+		.tab-item {
+			flex: 1;
+			height: 90rpx;
+			display: flex;
+			flex-direction: column;
+			justify-content: center;
+			align-items: center;
+			position: relative;
+			
+			.tab-text {
+				font-size: 28rpx;
+				color: #666;
+			}
+			
+			&.active {
+				.tab-text {
+					color: #00bcd4;
+					font-weight: bold;
+				}
+			}
+			
+			.tab-line {
+				position: absolute;
+				bottom: 0;
+				width: 140rpx;
+				height: 4rpx;
+				background-color: #00bcd4;
+			}
 		}
 	}
 
@@ -336,17 +500,17 @@
 			}
 			
 			.luxury-member-badge {
-				border-radius: 8rpx;
+				border-radius: 40rpx;
 				display: flex;
 				align-items: center;
-				padding: 6rpx 16rpx;
+				padding: 6rpx 24rpx;
 				margin-right: 20rpx;
-				box-shadow: 0 4rpx 8rpx rgba(0,0,0,0.15);
+				box-shadow: 0 4rpx 12rpx rgba(0,0,0,0.15);
 				
 				.m-label {
 					font-size: 20rpx;
 					font-weight: bold;
-					margin-right: 10rpx;
+					margin-right: 12rpx;
 				}
 				
 				.m-price {

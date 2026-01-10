@@ -125,11 +125,7 @@
 						keyword: this.keyword
 					});
 					
-					const list = res.list || [];
-					this.results = list.map(p => ({
-						...p,
-					memberPrice: apiService.calculateMemberPrice(p.purchasePrice)
-					}));
+					this.results = res.list || []; // apiService 已经处理过图片和价格了
 				} catch (e) {
 					console.error('搜索失败', e);
 					this.results = [];

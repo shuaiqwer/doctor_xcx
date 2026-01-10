@@ -132,7 +132,7 @@
 				console.log('[services] 开始初始化分类数据');
 				try {
 					const levelKey = apiService.getCurrentMemberLevel();
-					this.memberLevel = MEMBER_LEVELS[levelKey];
+					this.memberLevel = MEMBER_LEVELS[levelKey] || MEMBER_LEVELS.BLACK_GOLD;
 
 					// 获取分类列表
 					console.log('[services] 正在请求分类列表...');
@@ -180,23 +180,18 @@
 						category: categoryName
 					});
 					
-					console.log('[services] getProducts 响应结果:', res);
+					console.log('[services] getProducts 最终返回到页面的数据:', JSON.stringify(res));
 					
-					if (res.error) {
-						this.errorMsg = '数据加载失败: ' + res.error;
-					}
-
 					// 处理返回的数据格式
 					const list = res.list || [];
-					this.total = res.total || list.length;
-					this.totalPages = Math.ceil(this.total / this.pageSize);
+					this.total = res.total || 0;
+					this.totalPages = Math.ceil(this.total / (this.pageSize || 10)) || 1;
 					
-					console.log('[services] 解析后的商品数量:', list.length, '总数:', this.total);
+					if (list.length === 0) {
+						console.warn('[services] 列表解析结果为空，请检查上述 [API] 原始数据 log');
+					}
 
-					this.currentProducts = list.map(p => ({
-						...p,
-						memberPrice: apiService.calculateMemberPrice(p.purchasePrice)
-					}));
+					this.currentProducts = list; 
 				} catch (e) {
 					console.error('[services] 加载商品过程报错:', e);
 				} finally {
