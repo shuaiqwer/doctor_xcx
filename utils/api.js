@@ -335,5 +335,112 @@ export const apiService = {
                 }
             });
         });
+    },
+
+    // --- 用户与身份认证 ---
+    
+    /**
+     * 实现自动登录或凭包获取的参数登录
+     */
+    async autoLogin() {
+        const openId = uni.getStorageSync('debug_openId');
+        const userName = uni.getStorageSync('debug_userName');
+        
+        if (!openId) throw new Error('未检测到 OpenID，请先前往登录页设置');
+
+        return new Promise((resolve, reject) => {
+            uni.request({
+                url: `${BASE_URL}/api/v1/user/login`,
+                method: 'POST',
+                data: {
+                    openId,
+                    userName,
+                    key: API_KEY
+                },
+                success: (res) => {
+                    if (res.statusCode === 200 && res.data.token) {
+                        uni.setStorageSync('token', res.data.token);
+                        uni.setStorageSync('userInfo', res.data.user || {});
+                        resolve(res.data.token);
+                    } else {
+                        reject(new Error(res.data.message || '登录授权失败'));
+                    }
+                },
+                fail: (err) => reject(err)
+            });
+        });
+    },
+
+    /**
+     * 获取用户信息
+     */
+    async getUserInfo() {
+        return this._authorizedRequest({
+            url: `${BASE_URL}/api/v1/user/profile`,
+            method: 'GET'
+        });
+    },
+
+    // --- 订单与库存储管理 ---
+
+    /**
+     * 获取订单列表
+     */
+    async getOrders(status = 'all') {
+        return this._authorizedRequest({
+            url: `${BASE_URL}/api/v1/orders`,
+            method: 'GET',
+            data: { status }
+        });
+    },
+
+    /**
+     * 提交订单
+     */
+    async submitOrder(orderData) {
+        return this._authorizedRequest({
+            url: `${BASE_URL}/api/v1/orders/create`,
+            method: 'POST',
+            data: orderData
+        });
+    },
+
+    /**
+     * 内部辅助方法：处理带 Token 的请求
+     */
+    async _authorizedRequest(options) {
+        const token = uni.getStorageSync('token');
+        if (!token) {
+            // 引导去登录
+            uni.navigateTo({ url: '/pages/login/login' });
+            return Promise.reject(new Error('Unauthorized'));
+        }
+
+        return new Promise((resolve, reject) => {
+            uni.request({
+                ...options,
+                header: {
+                    ...options.header,
+                    'Authorization': `Bearer ${token}`
+                },
+                data: {
+                    ...options.data,
+                    key: API_KEY
+                },
+                success: (res) => {
+                    if (res.statusCode === 401) {
+                        uni.removeStorageSync('token');
+                        uni.navigateTo({ url: '/pages/login/login' });
+                        reject(new Error('Token 过期'));
+                    } else if (res.statusCode >= 200 && res.statusCode < 300) {
+                        resolve(res.data.data || res.data);
+                    } else {
+                        reject(new Error(res.data.message || '请求失败'));
+                    }
+                },
+                fail: (err) => reject(err)
+            });
+        });
     }
 };
+

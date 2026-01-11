@@ -19,13 +19,13 @@
 		<!-- 商品清单 -->
 		<view class="product-section">
 			<view class="section-title">商品清单</view>
-			<view class="product-item">
-				<view class="product-img"></view>
+			<view class="product-item" v-for="(item, index) in orderItems" :key="index">
+				<image class="product-img" :src="item.image" mode="aspectFill"></image>
 				<view class="product-info">
-					<text class="name">【正品】菲洛嘉135HA 能量青春动能素 3ml*5支/盒</text>
+					<text class="name">{{item.name}}</text>
 					<view class="price-row">
-						<text class="price">￥1280.00</text>
-						<text class="num">x1</text>
+						<text class="price">￥{{item.price}}</text>
+						<text class="num">x{{item.count}}</text>
 					</view>
 				</view>
 			</view>
@@ -35,7 +35,7 @@
 		<view class="fee-section">
 			<view class="fee-item">
 				<text>商品总额</text>
-				<text>￥1280.00</text>
+				<text>￥{{totalPrice}}</text>
 			</view>
 			<view class="fee-item">
 				<text>运费</text>
@@ -43,7 +43,7 @@
 			</view>
 			<view class="fee-item total">
 				<text>实付款</text>
-				<text class="total-price">￥1280.00</text>
+				<text class="total-price">￥{{totalPrice}}</text>
 			</view>
 		</view>
 
@@ -63,7 +63,7 @@
 		<view class="footer-bar">
 			<view class="total-info">
 				<text>合计：</text>
-				<text class="price">￥1280.00</text>
+				<text class="price">￥{{totalPrice}}</text>
 			</view>
 			<view class="submit-btn" @click="handlePay">立即支付</view>
 		</view>
@@ -74,23 +74,43 @@
 	export default {
 		data() {
 			return {
-				address: {
+				address: null,
+				orderItems: []
+			}
+		},
+		computed: {
+			totalPrice() {
+				return this.orderItems.reduce((sum, item) => sum + (parseFloat(item.price) * item.count), 0).toFixed(2);
+			}
+		},
+		onLoad(options) {
+			// 加载待购买物品
+			const items = uni.getStorageSync('temp_order_items') || [];
+			this.orderItems = items;
+			
+			// 默认地址加载逻辑
+			this.loadDefaultAddress();
+		},
+		methods: {
+			loadDefaultAddress() {
+				// 暂时模拟
+				this.address = {
 					name: '张医生',
 					phone: '138****8888',
 					province: '上海市',
 					city: '上海市',
 					district: '静安区',
 					detail: '南京西路1234号 悦容诊所'
-				}
-			}
-		},
-		methods: {
+				};
+			},
 			selectAddress() {
 				uni.navigateTo({
 					url: '/pages/address/list'
 				});
 			},
 			handlePay() {
+				if (!this.address) return uni.showToast({ title: '请选择收货地址', icon: 'none' });
+				
 				uni.showLoading({ title: '支付中...' });
 				setTimeout(() => {
 					uni.hideLoading();
@@ -98,6 +118,10 @@
 						title: '支付成功',
 						icon: 'success'
 					});
+					
+					// 支付成功后清除临时购买项
+					uni.removeStorageSync('temp_order_items');
+					
 					setTimeout(() => {
 						uni.redirectTo({
 							url: '/pages/order/list'

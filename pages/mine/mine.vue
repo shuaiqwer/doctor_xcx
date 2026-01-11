@@ -3,12 +3,13 @@
 		<!-- 顶部背景 -->
 		<view class="user-header">
 			<view class="user-card">
-				<view class="avatar-box">
-					<view class="avatar-placeholder"></view>
+				<view class="avatar-box" @click="isLogin ? null : goToLogin()">
+					<image v-if="isLogin && userInfo.avatar" :src="userInfo.avatar" class="avatar"></image>
+					<view v-else class="avatar-placeholder"></view>
 				</view>
-				<view class="user-info">
-					<text class="nickname">悦容尊享会员</text>
-					<view class="level-badge" :style="{ background: memberLevel.bg, color: memberLevel.textColor, border: memberLevel.border }">
+				<view class="user-info" @click="isLogin ? null : goToLogin()">
+					<text class="nickname">{{ isLogin ? (userInfo.nickname || '尊享会员') : '点击登录' }}</text>
+					<view v-if="isLogin" class="level-badge" :style="{ background: memberLevel.bg, color: memberLevel.textColor, border: memberLevel.border }">
 						<text>{{memberLevel.name}}</text>
 					</view>
 				</view>
@@ -109,6 +110,13 @@
 					</view>
 					<text class="menu-right">9:00-21:00 </text>
 				</view>
+				<view v-if="isLogin" class="menu-item" @click="handleLogout">
+					<view class="menu-left">
+						<icon type="warn" size="18" color="#E74C3C" />
+						<text style="color: #E74C3C;">退出登录</text>
+					</view>
+					<text class="menu-right"></text>
+				</view>
 			</view>
 		</view>
 		
@@ -125,14 +133,27 @@
 	export default {
 		data() {
 			return {
-				memberLevel: {}
+				memberLevel: {},
+				isLogin: false,
+				userInfo: {}
 			}
 		},
-		onLoad() {
+		onShow() {
+			this.checkLoginStatus();
 			const levelKey = apiService.getCurrentMemberLevel();
 			this.memberLevel = MEMBER_LEVELS[levelKey];
 		},
 		methods: {
+			checkLoginStatus() {
+				const token = uni.getStorageSync('token');
+				if (token) {
+					this.isLogin = true;
+					this.userInfo = uni.getStorageSync('userInfo') || {};
+				} else {
+					this.isLogin = false;
+					this.userInfo = {};
+				}
+			},
 			goToOrders(index) {
 				uni.navigateTo({
 					url: '/pages/order/list?type=' + index
@@ -172,6 +193,20 @@
 					});
 				}
 			},
+			handleLogout() {
+				uni.showModal({
+					title: '提示',
+					content: '确定要退出登录吗？',
+					success: (res) => {
+						if (res.confirm) {
+							uni.removeStorageSync('token');
+							uni.removeStorageSync('userInfo');
+							this.checkLoginStatus();
+							uni.showToast({ title: '已退出', icon: 'none' });
+						}
+					}
+				});
+			},
 			showToast(msg) {
 				uni.showToast({
 					title: msg,
@@ -207,7 +242,7 @@
 			padding: 4rpx;
 			margin-right: 30rpx;
 			
-			.avatar-placeholder {
+			.avatar-placeholder, .avatar {
 				width: 100%;
 				height: 100%;
 				border-radius: 50%;

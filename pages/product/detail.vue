@@ -162,8 +162,8 @@
 				</view>
 			</view>
 			<view class="action-btns">
-				<view class="cart-btn" @click="showToast('已加入购物车')">加入购物车</view>
-				<view class="buy-btn" @click="goToConfirm">立即购买</view>
+				<view class="cart-btn" @click="addToCart">加入购物车</view>
+				<view class="buy-btn" @click="buyNow">立即购买</view>
 			</view>
 		</view>
 	</view>
@@ -354,6 +354,41 @@
 			goToMember() {
 				uni.navigateTo({
 					url: '/pages/mine/member'
+				});
+			},
+			addToCart() {
+				const cart = uni.getStorageSync('cart') || [];
+				const index = cart.findIndex(item => item.id === this.product.id);
+				
+				if (index > -1) {
+					cart[index].count += 1;
+				} else {
+					cart.push({
+						id: this.product.id,
+						name: this.product.name,
+						image: this.product.image,
+						price: this.product.memberPrice, // 使用会员价
+						originalPrice: this.product.price,
+						count: 1,
+						selected: true
+					});
+				}
+				
+				uni.setStorageSync('cart', cart);
+				uni.showToast({ title: '已加入购物车', icon: 'success' });
+			},
+			buyNow() {
+				// 立即购买通常通过 URL 参数传递购买内容，或者存入临时变量
+				const orderItem = {
+					id: this.product.id,
+					name: this.product.name,
+					image: this.product.image,
+					price: this.product.memberPrice,
+					count: 1
+				};
+				uni.setStorageSync('temp_order_items', [orderItem]);
+				uni.navigateTo({
+					url: '/pages/order/confirm?from=buyNow'
 				});
 			},
 			showToast(msg) {

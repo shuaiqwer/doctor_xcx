@@ -39,6 +39,7 @@
 						<view class="btn solid" v-if="order.status === 0" @click="goToPay(order)">去支付</view>
 						<view class="btn outline" v-if="order.status === 2" @click="showToast('物流信息查询中')">查看物流</view>
 						<view class="btn solid" v-if="order.status === 2" @click="showToast('已确认收货')">确认收货</view>
+						<view class="btn outline" v-if="order.status === 3" @click="handleRefund(order)">申请售后</view>
 						<view class="btn outline" v-if="order.status === 3" @click="goToDetail">再次购买</view>
 					</view>
 				</view>
@@ -53,12 +54,51 @@
 </template>
 
 <script>
+	import { apiService } from '@/utils/api.js';
 	export default {
 		data() {
 			return {
 				currentIndex: 0,
 				tabs: ['全部', '待付款', '待发货', '待收货', '已完成'],
-				orders: [
+				orders: [],
+				loading: false
+			}
+		},
+		onLoad(options) {
+			if (options.type) {
+				this.currentIndex = parseInt(options.type);
+			}
+			this.fetchOrders();
+		},
+		watch: {
+			currentIndex() {
+				this.fetchOrders();
+			}
+		},
+		computed: {
+			filteredOrders() {
+				return this.orders;
+			}
+		},
+		methods: {
+			async fetchOrders() {
+				this.loading = true;
+				try {
+					const statusMap = ['all', 'pending', 'shipping', 'receiving', 'completed'];
+					const status = statusMap[this.currentIndex];
+					const res = await apiService.getOrders(status);
+					// 如果 API 没通，我们保留一些模拟数据
+					this.orders = res || [];
+				} catch (e) {
+					console.error('获取订单失败:', e);
+					// 降级使用模拟数据
+					this.loadMockOrders();
+				} finally {
+					this.loading = false;
+				}
+			},
+			loadMockOrders() {
+				const allMock = [
 					{ 
 						status: 2, 
 						statusText: '待收货', 
@@ -75,22 +115,29 @@
 						num: 2, 
 						totalPrice: '256.00' 
 					}
-				]
-			}
-		},
-		computed: {
-			filteredOrders() {
-				if (this.currentIndex === 0) return this.orders;
-				// 简单模拟过滤逻辑
-				const statusMap = [null, 0, 1, 2, 3];
-				return this.orders.filter(o => o.status === statusMap[this.currentIndex]);
-			}
-		},
-		methods: {
+				];
+				if (this.currentIndex === 0) {
+					this.orders = allMock;
+				} else {
+					const statusMap = [null, 0, 1, 2, 3];
+					this.orders = allMock.filter(o => o.status === statusMap[this.currentIndex]);
+				}
+			},
 			showToast(msg) {
 				uni.showToast({
 					title: msg,
 					icon: 'none'
+				});
+			},
+			handleRefund(order) {
+				uni.showModal({
+					title: '申请售后',
+					content: '确定要申请退款/退货吗？',
+					success: (res) => {
+						if (res.confirm) {
+							uni.showToast({ title: '申请已提交', icon: 'success' });
+						}
+					}
 				});
 			},
 			goToPay(order) {

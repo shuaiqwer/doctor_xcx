@@ -4,20 +4,22 @@ import sqlite3
 import os
 import json
 
-app = Flask(__name__, static_folder='static') 
+app = Flask(__name__)
 CORS(app)
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DB_PATH = os.path.join(BASE_DIR, "doctor_shop.db")
-# [修复] 静态资源已迁移到 backend_static 防止提示编译报错
+# [修复] 静态资源已迁移到 backend_static 防止编译报错
 IMAGE_DIR = os.path.join(BASE_DIR, "backend_static", "product_images")
+
+# Flask 默认 static 目录是 'static'，我们需要添加一个新的路由来服务 backend_static
+app = Flask(__name__, static_folder='static') 
+CORS(app)
 
 # [新增] 注册 backend_static 目录的静态文件服务
 @app.route('/static/product_images/<path:filename>')
 def serve_product_images(filename):
-    # 打印请求路径，方便调试
-    print(f"[DEBUG] Serving image: {filename}")
-    return send_from_directory(IMAGE_DIR, filename)
+    return send_from_directory(os.path.join(BASE_DIR, "backend_static", "product_images"), filename)
 
 # [新增] 为了兼容可能访问 data 的请求
 @app.route('/static/data/<path:filename>')
@@ -61,54 +63,51 @@ def get_products():
     query = f'SELECT * FROM products {where_clause} LIMIT ? OFFSET ?'
     rows = conn.execute(query, params + [page_size, offset]).fetchall()
     
-    print(f"[DEBUG] Found {len(rows)} products for keyword='{keyword}', category='{category}'")
-    
     products = []
     for row in rows:
         d = dict(row)
         pid = d['id']
+        d['tags'] = d['tags'].split(',') if d['tags'] else []
+        d['purchasePrice'] = d.pop('purchase_price')
+        d['originalPrice'] = d.pop('original_price')
         
-        # 统一路径格式
-        if d.get('tags'):
-            d['tags'] = d['tags'].split(',')
-        else:
-            d['tags'] = []
-            
-        # 兼容字段名
-        d['purchasePrice'] = d.pop('purchase_price', 0)
-        d['originalPrice'] = d.pop('original_price', 0)
-        
-        # --- 图片探测逻辑 ---
+        # 1. 核心优化：探测本地图片目录 (绝对路径)
         local_img_dir = os.path.join(IMAGE_DIR, str(pid))
         local_main_image = ""
+        
         if os.path.exists(local_img_dir):
+            # 扫描目录寻找以 0. 或 0_ 开头的主图
             try:
                 for f in os.listdir(local_img_dir):
                     if f.startswith('0.') or f.startswith('0_'):
                         local_main_image = f"/static/product_images/{pid}/{f}"
                         break
-            except: pass
+            except Exception as e:
+                print(f"[ERROR] Scan directory {pid} failed: {e}")
         
+        # 2. 智能路径决策
         if local_main_image:
+            # 只要本地目录下有 0.jpg 系列的主图，绝对优先使用本地路径
             d['image'] = local_main_image
         else:
+            # 本地没探测到图，则分析数据库里的原始字段
             db_img = d.get('image', '')
             if db_img:
                 if db_img.startswith('http'):
+                    # 如果已经是完整 URL，保持原样
                     d['image'] = db_img
-                elif 'product_images/' in db_img:
-                    # 确保格式统一为 /static/product_images/xxx
-                    marker = 'product_images/'
-                    clean_suffix = db_img[db_img.find(marker):]
-                    d['image'] = f"/static/{clean_suffix}"
-                else:
+                elif 'static/product_images/' in db_img:
+                    # 如果已经包含正确路径，确保以 / 开头
+                    d['image'] = db_img if db_img.startswith('/') else f"/{db_img}"
+                elif not db_img.startswith('/'):
+                    # 纯文件名或纯 ID/文件名的相对路径
                     d['image'] = f"/static/product_images/{db_img}"
             else:
-                d['image'] = ""
-        # --- 图片逻辑结束 ---
-
+                d['image'] = "" # 彻底没图的情况
+            
+        # 添加缺失的字段
         if 'price' not in d:
-            d['price'] = d.get('purchasePrice', 0)
+            d['price'] = str(d.get('purchasePrice', 0))
         if 'sales' not in d:
             d['sales'] = 100 + (pid % 500)
         products.append(d)
@@ -254,6 +253,10 @@ def get_product_detail(pid):
         "msg": "success",
         "data": data
     })
+
+@app.route('/static/product_images/<path:filename>')
+def serve_image(filename):
+    return send_from_directory(IMAGE_DIR, filename)
 
 if __name__ == '__main__':
     print(f"Server running at http://localhost:8080")
